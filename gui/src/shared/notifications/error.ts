@@ -138,6 +138,8 @@ function getMessage(errorDetails: IErrorState, accountExpiry?: string): string {
           'notifications',
           "Your device is offline. Try connecting when it's back online.",
         );
+      case 'split_tunnel_error':
+        return messages.pgettext('notifications', 'SPLIT_TUNNEL_ERROR');
     }
   }
 }
