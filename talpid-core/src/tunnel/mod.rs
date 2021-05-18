@@ -70,8 +70,6 @@ pub enum Error {
 pub enum TunnelEvent {
     /// Sent when the tunnel fails to connect due to an authentication error.
     AuthFailed(Option<String>),
-    /// Sent when the tunnel interface has been created.
-    InterfaceUp(String),
     /// Sent when the tunnel comes up and is ready for traffic.
     Up(TunnelMetadata),
     /// Sent when the tunnel goes down.
@@ -296,6 +294,11 @@ impl TunnelMonitor {
         }
     }
 
+    /// Returns tunnel metadata if it is available
+    pub fn tunnel_metadata(&self) -> Option<TunnelMetadata> {
+        self.monitor.tunnel_metadata()
+    }
+
     /// Creates a handle to this monitor, allowing the tunnel to be closed while some other
     /// thread
     /// is blocked in `wait`.
@@ -345,6 +348,14 @@ impl InternalTunnelMonitor {
             #[cfg(not(target_os = "android"))]
             InternalTunnelMonitor::OpenVpn(tun) => CloseHandle::OpenVpn(tun.close_handle()),
             InternalTunnelMonitor::Wireguard(tun) => CloseHandle::Wireguard(tun.close_handle()),
+        }
+    }
+
+    fn tunnel_metadata(&self) -> Option<TunnelMetadata> {
+        match self {
+            #[cfg(not(target_os = "android"))]
+            InternalTunnelMonitor::OpenVpn(_tun) => None,
+            InternalTunnelMonitor::Wireguard(tun) => Some(tun.get_metadata().clone()),
         }
     }
 

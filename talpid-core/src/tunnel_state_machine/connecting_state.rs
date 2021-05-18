@@ -5,10 +5,7 @@ use super::{
 };
 use crate::{
     firewall::FirewallPolicy,
-    routing::RouteManager,
-    tunnel::{
-        self, tun_provider::TunProvider, CloseHandle, TunnelEvent, TunnelMetadata, TunnelMonitor,
-    },
+    tunnel::{self, CloseHandle, TunnelEvent, TunnelMetadata, TunnelMonitor},
 };
 use cfg_if::cfg_if;
 use futures::{
@@ -19,7 +16,6 @@ use futures::{
 use log::{debug, error, info, trace, warn};
 use std::{
     net::IpAddr,
-    path::{Path, PathBuf},
     thread,
     time::{Duration, Instant},
 };
@@ -92,39 +88,46 @@ impl ConnectingState {
     }
 
     fn start_tunnel(
-        runtime: tokio::runtime::Handle,
-        parameters: TunnelParameters,
-        log_dir: &Option<PathBuf>,
-        resource_dir: &Path,
-        tun_provider: &mut TunProvider,
-        route_manager: &mut RouteManager,
-        retry_attempt: u32,
-    ) -> crate::tunnel::Result<Self> {
+        shared_values: &mut SharedTunnelStateValues,
+        parameters: &TunnelParameters,
+    ) -> crate::tunnel::Result<(TunnelMonitor, mpsc::UnboundedReceiver<TunnelEvent>)> {
         let (event_tx, event_rx) = mpsc::unbounded();
         let on_tunnel_event = move |event| {
             let _ = event_tx.unbounded_send(event);
         };
 
-        let monitor = TunnelMonitor::start(
-            runtime,
-            &parameters,
-            log_dir,
-            resource_dir,
-            on_tunnel_event,
-            tun_provider,
-            route_manager,
-        )?;
+        Ok((
+            TunnelMonitor::start(
+                shared_values.runtime.clone(),
+                &parameters,
+                &shared_values.log_dir,
+                &shared_values.resource_dir,
+                on_tunnel_event,
+                &mut shared_values.tun_provider,
+                &mut shared_values.route_manager,
+            )?,
+            event_rx,
+        ))
+    }
+
+    fn start_tunnel_thread(
+        monitor: TunnelMonitor,
+        parameters: TunnelParameters,
+        retry_attempt: u32,
+        event_rx: mpsc::UnboundedReceiver<TunnelEvent>,
+    ) -> Self {
         let close_handle = Some(monitor.close_handle());
+        let tunnel_interface = monitor.tunnel_metadata().map(|metadata| metadata.interface);
         let tunnel_close_event = Self::spawn_tunnel_monitor_wait_thread(Some(monitor));
 
-        Ok(ConnectingState {
+        ConnectingState {
             tunnel_events: event_rx.fuse(),
             tunnel_parameters: parameters,
-            tunnel_interface: None,
+            tunnel_interface,
             tunnel_close_event,
             close_handle,
             retry_attempt,
-        })
+        }
     }
 
     fn spawn_tunnel_monitor_wait_thread(tunnel_monitor: Option<TunnelMonitor>) -> TunnelCloseEvent {
@@ -306,7 +309,7 @@ impl ConnectingState {
     }
 
     fn handle_tunnel_events(
-        mut self,
+        self,
         event: Option<tunnel::TunnelEvent>,
         shared_values: &mut SharedTunnelStateValues,
     ) -> EventConsequence {
@@ -317,20 +320,6 @@ impl ConnectingState {
                 shared_values,
                 AfterDisconnect::Block(ErrorStateCause::AuthFailed(reason)),
             ),
-            Some(TunnelEvent::InterfaceUp(interface)) => {
-                self.tunnel_interface = Some(interface);
-                match Self::set_firewall_policy(
-                    shared_values,
-                    &self.tunnel_parameters,
-                    &self.tunnel_interface,
-                ) {
-                    Ok(()) => SameState(self.into()),
-                    Err(error) => self.disconnect(
-                        shared_values,
-                        AfterDisconnect::Block(ErrorStateCause::SetFirewallPolicyError(error)),
-                    ),
-                }
-            }
             Some(TunnelEvent::Up(metadata)) => NewState(ConnectedState::enter(
                 shared_values,
                 self.into_connected_state_bootstrap(metadata),
@@ -445,44 +434,31 @@ impl TunnelState for ConnectingState {
                         }
                     }
 
-                    match Self::start_tunnel(
-                        shared_values.runtime.clone(),
-                        tunnel_parameters,
-                        &shared_values.log_dir,
-                        &shared_values.resource_dir,
-                        &mut shared_values.tun_provider,
-                        &mut shared_values.route_manager,
-                        retry_attempt,
-                    ) {
-                        Ok(connecting_state) => {
-                            let params = connecting_state.tunnel_parameters.clone();
-                            (
-                                TunnelStateWrapper::from(connecting_state),
-                                TunnelStateTransition::Connecting(params.get_tunnel_endpoint()),
-                            )
-                        }
-                        Err(error) => {
-                            if should_retry(&error) {
-                                log::warn!(
-                                    "{}",
-                                    error.display_chain_with_msg(
-                                        "Retrying to connect after failing to start tunnel"
-                                    )
-                                );
-                                DisconnectingState::enter(
-                                    shared_values,
-                                    (
-                                        None,
-                                        Self::spawn_tunnel_monitor_wait_thread(None),
-                                        AfterDisconnect::Reconnect(retry_attempt + 1),
-                                    ),
-                                )
-                            } else {
-                                log::error!(
-                                    "{}",
-                                    error.display_chain_with_msg("Failed to start tunnel")
-                                );
-                                let block_reason = match error {
+                    let (monitor, event_rx) =
+                        match Self::start_tunnel(shared_values, &tunnel_parameters) {
+                            Ok((monitor, event_rx)) => (monitor, event_rx),
+                            Err(error) => {
+                                if should_retry(&error) {
+                                    log::warn!(
+                                        "{}",
+                                        error.display_chain_with_msg(
+                                            "Retrying to connect after failing to start tunnel"
+                                        )
+                                    );
+                                    return DisconnectingState::enter(
+                                        shared_values,
+                                        (
+                                            None,
+                                            Self::spawn_tunnel_monitor_wait_thread(None),
+                                            AfterDisconnect::Reconnect(retry_attempt + 1),
+                                        ),
+                                    );
+                                } else {
+                                    log::error!(
+                                        "{}",
+                                        error.display_chain_with_msg("Failed to start tunnel")
+                                    );
+                                    let block_reason = match error {
                                     tunnel::Error::EnableIpv6Error => {
                                         ErrorStateCause::Ipv6Unavailable
                                     }
@@ -504,9 +480,37 @@ impl TunnelState for ConnectingState {
                                     ) => ErrorStateCause::InvalidDnsServers(addresses),
                                     _ => ErrorStateCause::StartTunnelError,
                                 };
-                                ErrorState::enter(shared_values, block_reason)
+                                    return ErrorState::enter(shared_values, block_reason);
+                                }
                             }
+                        };
+
+                    let metadata = monitor.tunnel_metadata();
+                    if let Some(metadata) = metadata {
+                        if let Err(error) = Self::set_firewall_policy(
+                            shared_values,
+                            &tunnel_parameters,
+                            &Some(metadata.interface),
+                        ) {
+                            return ErrorState::enter(
+                                shared_values,
+                                ErrorStateCause::SetFirewallPolicyError(error),
+                            );
                         }
+                    }
+
+                    let connecting_state = Self::start_tunnel_thread(
+                        monitor,
+                        tunnel_parameters,
+                        retry_attempt,
+                        event_rx,
+                    );
+                    {
+                        let params = connecting_state.tunnel_parameters.clone();
+                        (
+                            TunnelStateWrapper::from(connecting_state),
+                            TunnelStateTransition::Connecting(params.get_tunnel_endpoint()),
+                        )
                     }
                 }
             }
