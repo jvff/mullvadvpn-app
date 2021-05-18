@@ -66,11 +66,11 @@ pub struct WireguardMonitor {
     /// Tunnel implementation
     tunnel: Arc<Mutex<Option<Box<dyn Tunnel>>>>,
     /// Callback to signal tunnel events
-    event_callback: Box<dyn Fn(TunnelEvent) + Send + Sync + 'static>,
+    event_callback: Arc<Box<dyn Fn(TunnelEvent) + Send + Sync + 'static>>,
     close_msg_sender: mpsc::Sender<CloseMsg>,
     close_msg_receiver: mpsc::Receiver<CloseMsg>,
-    pinger_stop_sender: mpsc::Sender<()>,
     _tcp_proxies: Vec<TcpProxy>,
+    metadata: TunnelMetadata,
 }
 
 #[cfg(target_os = "linux")]
@@ -177,50 +177,15 @@ impl WireguardMonitor {
 
         let event_callback = Box::new(on_event.clone());
         let (close_msg_sender, close_msg_receiver) = mpsc::channel();
-        let (pinger_tx, pinger_rx) = mpsc::channel();
+        let metadata = Self::tunnel_metadata(&iface_name, &config);
         let monitor = WireguardMonitor {
             tunnel: Arc::new(Mutex::new(Some(tunnel))),
-            event_callback,
+            event_callback: Arc::new(event_callback),
             close_msg_sender,
             close_msg_receiver,
-            pinger_stop_sender: pinger_tx,
             _tcp_proxies: tcp_proxies,
+            metadata,
         };
-
-        let metadata = Self::tunnel_metadata(&iface_name, &config);
-        let gateway = config.ipv4_gateway;
-        let close_sender = monitor.close_msg_sender.clone();
-        let mut connectivity_monitor = connectivity_check::ConnectivityMonitor::new(
-            gateway,
-            iface_name.to_string(),
-            Arc::downgrade(&monitor.tunnel),
-            pinger_rx,
-        )
-        .map_err(Error::ConnectivityMonitorError)?;
-
-        std::thread::spawn(move || {
-            match connectivity_monitor.establish_connectivity() {
-                Ok(true) => {
-                    (on_event)(TunnelEvent::Up(metadata));
-
-                    if let Err(error) = connectivity_monitor.run() {
-                        log::error!(
-                            "{}",
-                            error.display_chain_with_msg("Connectivity monitor failed")
-                        );
-                    }
-                }
-                Ok(false) => log::warn!("Timeout while checking tunnel connection"),
-                Err(error) => {
-                    log::error!(
-                        "{}",
-                        error.display_chain_with_msg("Failed to check tunnel connection")
-                    );
-                }
-            }
-
-            let _ = close_sender.send(CloseMsg::PingErr);
-        });
 
         Ok(monitor)
     }
@@ -289,13 +254,57 @@ impl WireguardMonitor {
 
     /// Blocks the current thread until tunnel disconnects
     pub fn wait(mut self) -> Result<()> {
+        let interface_name = if let Some(tunnel) = &*self.tunnel.lock().unwrap() {
+            tunnel.get_interface_name().to_string()
+        } else {
+            return Ok(());
+        };
+        let (pinger_tx, pinger_rx) = mpsc::channel();
+
+        let gateway = self.metadata.ipv4_gateway;
+        let close_sender = self.close_msg_sender.clone();
+        let mut connectivity_monitor = connectivity_check::ConnectivityMonitor::new(
+            gateway,
+            interface_name,
+            Arc::downgrade(&self.tunnel),
+            pinger_rx,
+        )
+        .map_err(Error::ConnectivityMonitorError)?;
+
+        let event_callback = self.event_callback.clone();
+        let metadata = self.metadata.clone();
+
+        std::thread::spawn(move || {
+            match connectivity_monitor.establish_connectivity() {
+                Ok(true) => {
+                    (event_callback)(TunnelEvent::Up(metadata));
+
+                    if let Err(error) = connectivity_monitor.run() {
+                        log::error!(
+                            "{}",
+                            error.display_chain_with_msg("Connectivity monitor failed")
+                        );
+                    }
+                }
+                Ok(false) => log::warn!("Timeout while checking tunnel connection"),
+                Err(error) => {
+                    log::error!(
+                        "{}",
+                        error.display_chain_with_msg("Failed to check tunnel connection")
+                    );
+                }
+            }
+
+            let _ = close_sender.send(CloseMsg::PingErr);
+        });
+
         let wait_result = match self.close_msg_receiver.recv() {
             Ok(CloseMsg::PingErr) => Err(Error::TimeoutError),
             Ok(CloseMsg::Stop) => Ok(()),
             Err(_) => Ok(()),
         };
 
-        let _ = self.pinger_stop_sender.send(());
+        let _ = pinger_tx.send(());
 
         self.stop_tunnel();
 
