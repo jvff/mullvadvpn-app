@@ -15,7 +15,6 @@ use futures::{
 };
 use log::{debug, error, info, trace, warn};
 use std::{
-    net::IpAddr,
     thread,
     time::{Duration, Instant},
 };
@@ -63,7 +62,6 @@ impl ConnectingState {
         let policy = FirewallPolicy::Connecting {
             peer_endpoint,
             tunnel_interface: tunnel_interface.clone(),
-            pingable_hosts: gateway_list_from_params(params),
             allow_lan: shared_values.allow_lan,
             allowed_endpoint: shared_values.allowed_endpoint.clone(),
             #[cfg(windows)]
@@ -542,19 +540,5 @@ impl TunnelState for ConnectingState {
                 self.handle_tunnel_close_event(block_reason, shared_values)
             }
         }
-    }
-}
-
-fn gateway_list_from_params(params: &TunnelParameters) -> Vec<IpAddr> {
-    match params {
-        TunnelParameters::Wireguard(params) => {
-            let mut gateways = vec![params.connection.ipv4_gateway.into()];
-            if let Some(ipv6_gateway) = params.connection.ipv6_gateway {
-                gateways.push(ipv6_gateway.into())
-            };
-            gateways
-        }
-        // No gateway list required when connecting to openvpn
-        TunnelParameters::OpenVpn(_) => vec![],
     }
 }
