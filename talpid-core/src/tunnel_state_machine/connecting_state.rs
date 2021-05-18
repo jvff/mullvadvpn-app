@@ -42,7 +42,7 @@ const MIN_TUNNEL_ALIVE_TIME: Duration = Duration::from_millis(1000);
 pub struct ConnectingState {
     tunnel_events: TunnelEventsReceiver,
     tunnel_parameters: TunnelParameters,
-    tunnel_interface: Option<String>,
+    tunnel_metadata: Option<TunnelMetadata>,
     tunnel_close_event: TunnelCloseEvent,
     close_handle: Option<CloseHandle>,
     retry_attempt: u32,
@@ -52,7 +52,7 @@ impl ConnectingState {
     fn set_firewall_policy(
         shared_values: &mut SharedTunnelStateValues,
         params: &TunnelParameters,
-        tunnel_interface: &Option<String>,
+        tunnel_metadata: &Option<TunnelMetadata>,
     ) -> Result<(), FirewallPolicyError> {
         #[cfg(target_os = "linux")]
         shared_values.disable_connectivity_check();
@@ -61,7 +61,7 @@ impl ConnectingState {
 
         let policy = FirewallPolicy::Connecting {
             peer_endpoint,
-            tunnel_interface: tunnel_interface.clone(),
+            tunnel: tunnel_metadata.clone(),
             allow_lan: shared_values.allow_lan,
             allowed_endpoint: shared_values.allowed_endpoint.clone(),
             #[cfg(windows)]
@@ -115,13 +115,13 @@ impl ConnectingState {
         event_rx: mpsc::UnboundedReceiver<TunnelEvent>,
     ) -> Self {
         let close_handle = Some(monitor.close_handle());
-        let tunnel_interface = monitor.tunnel_metadata().map(|metadata| metadata.interface);
+        let tunnel_metadata = monitor.tunnel_metadata();
         let tunnel_close_event = Self::spawn_tunnel_monitor_wait_thread(Some(monitor));
 
         ConnectingState {
             tunnel_events: event_rx.fuse(),
             tunnel_parameters: parameters,
-            tunnel_interface,
+            tunnel_metadata,
             tunnel_close_event,
             close_handle,
             retry_attempt,
@@ -232,7 +232,7 @@ impl ConnectingState {
                     match Self::set_firewall_policy(
                         shared_values,
                         &self.tunnel_parameters,
-                        &self.tunnel_interface,
+                        &self.tunnel_metadata,
                     ) {
                         Ok(()) => {
                             cfg_if! {
@@ -255,7 +255,7 @@ impl ConnectingState {
                     if let Err(error) = Self::set_firewall_policy(
                         shared_values,
                         &self.tunnel_parameters,
-                        &self.tunnel_interface,
+                        &self.tunnel_metadata,
                     ) {
                         return self.disconnect(
                             shared_values,
@@ -488,7 +488,7 @@ impl TunnelState for ConnectingState {
                         if let Err(error) = Self::set_firewall_policy(
                             shared_values,
                             &tunnel_parameters,
-                            &Some(metadata.interface),
+                            &Some(metadata),
                         ) {
                             return ErrorState::enter(
                                 shared_values,
