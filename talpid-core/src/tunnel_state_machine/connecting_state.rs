@@ -189,8 +189,6 @@ impl ConnectingState {
     }
 
     fn reset_routes(shared_values: &mut SharedTunnelStateValues) {
-        #[cfg(windows)]
-        shared_values.route_manager.clear_default_route_callbacks();
         if let Err(error) = shared_values.route_manager.clear_routes() {
             log::error!("{}", error.display_chain_with_msg("Failed to clear routes"));
         }
@@ -300,6 +298,11 @@ impl ConnectingState {
             #[cfg(target_os = "android")]
             Some(TunnelCommand::BypassSocket(fd, done_tx)) => {
                 shared_values.bypass_socket(fd, done_tx);
+                SameState(self.into())
+            }
+            #[cfg(windows)]
+            Some(TunnelCommand::SetExcludedApps(result_tx, paths)) => {
+                let _ = result_tx.send(shared_values.split_tunnel.set_paths(&paths));
                 SameState(self.into())
             }
         }
@@ -425,6 +428,18 @@ impl TunnelState for ConnectingState {
                 ErrorState::enter(shared_values, ErrorStateCause::TunnelParameterError(err))
             }
             Ok(tunnel_parameters) => {
+                #[cfg(windows)]
+                if let Err(error) = shared_values.split_tunnel.set_tunnel_addresses(None) {
+                    log::error!(
+                        "{}",
+                        error.display_chain_with_msg(
+                            "Failed to register addresses with split tunnel driver"
+                        )
+                    );
+
+                    return ErrorState::enter(shared_values, ErrorStateCause::StartTunnelError);
+                }
+
                 if let Err(error) =
                     Self::set_firewall_policy(shared_values, &tunnel_parameters, &None)
                 {
