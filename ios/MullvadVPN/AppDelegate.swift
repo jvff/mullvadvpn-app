@@ -8,6 +8,7 @@
 
 import UIKit
 import StoreKit
+import UserNotifications
 import Logging
 
 @UIApplicationMain
@@ -29,6 +30,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var splitViewController: CustomSplitViewController?
     private var selectLocationViewController: SelectLocationViewController?
     private var connectController: ConnectViewController?
+    private weak var settingsNavController: SettingsNavigationController?
 
     private var cachedRelays: CachedRelays? {
         didSet {
@@ -39,6 +41,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     private var relayConstraints: RelayConstraints?
     private let alertPresenter = AlertPresenter()
+    private let notificationManager = NotificationManager()
 
     // MARK: - Application lifecycle
 
@@ -59,6 +62,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Configure mock tunnel provider on simulator
         SimulatorTunnelProvider.shared.delegate = simulatorTunnelProvider
         #endif
+
+        // Assign user notification center delegate
+        let userNotificationCenter = UNUserNotificationCenter.current()
+        userNotificationCenter.delegate = self
 
         // Create an app window
         self.window = UIWindow(frame: UIScreen.main.bounds)
@@ -147,6 +154,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         default:
             fatalError()
+        }
+
+        if let accountExpiry = Account.shared.expiry {
+            notificationManager.addAccountExpiryNotification(accountExpiry: accountExpiry)
         }
 
         startPaymentQueueHandling()
@@ -336,14 +347,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 extension AppDelegate: RootContainerViewControllerDelegate {
 
     func rootContainerViewControllerShouldShowSettings(_ controller: RootContainerViewController, navigateTo route: SettingsNavigationRoute?, animated: Bool) {
-        let navController = makeSettingsNavigationController(route: route)
-
-        // On iPad the login controller can be presented modally above the root container.
-        // in that case we have to use the presented controller to present the next modal.
-        if let presentedController = controller.presentedViewController {
-            presentedController.present(navController, animated: true)
+        // Check if settings controller is already presented.
+        if let settingsNavController = self.settingsNavController {
+            if let route = route {
+                settingsNavController.navigate(to: route, animated: animated)
+            } else {
+                settingsNavController.popToRootViewController(animated: animated)
+            }
         } else {
-            controller.present(navController, animated: true)
+            let navController = makeSettingsNavigationController(route: route)
+
+            // On iPad the login controller can be presented modally above the root container.
+            // in that case we have to use the presented controller to present the next modal.
+            if let presentedController = controller.presentedViewController {
+                presentedController.present(navController, animated: true)
+            } else {
+                controller.present(navController, animated: true)
+            }
+
+            // Save the reference for later.
+            self.settingsNavController = navController
         }
     }
 
@@ -687,6 +710,30 @@ extension AppDelegate: UISplitViewControllerDelegate {
             self.selectLocationViewController?.dismiss(animated: false)
         }
         return nil
+    }
+
+}
+
+// MARK: - UNUserNotificationCenterDelegate
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if response.notification.request.identifier == NotificationRequestIdentifier.accountExpiry,
+           response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+            rootContainer?.showSettings(navigateTo: .account, animated: true)
+        }
+
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        if #available(iOS 14.0, *) {
+            // Show notification even if the app is in foreground
+            completionHandler([.banner, .list, .sound])
+        } else {
+            completionHandler([.alert, .sound])
+        }
     }
 
 }

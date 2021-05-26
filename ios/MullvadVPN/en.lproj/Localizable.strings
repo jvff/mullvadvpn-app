@@ -11,3 +11,5 @@
 
 "SELECT_LOCATION_COLLAPSE_ACCESSIBILITY_ACTION" = "Collapse location";
 "SELECT_LOCATION_EXPAND_ACCESSIBILITY_ACTION" = "Expand location";
+
+"AccountExpiryNotificationBody" = "Account credit expires in 3 days.";
