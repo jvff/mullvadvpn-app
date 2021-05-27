@@ -52,6 +52,7 @@ Line wrap the file at 100 chars.                                              Th
 ### Fixed
 - Fix relay selection failing to pick a WireGuard relay when no tunnel protocol is specified.
 - Fix time left not always being translated in desktop app settings.
+- Assign local DNS servers to more appropriate interfaces when using systemd-resolved.
 
 #### Windows
 - Prevent tray icons from being extraced to `%TEMP%` directory.
