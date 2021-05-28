@@ -232,7 +232,7 @@ async function convertToSplitTunnelingApplication(
 }
 
 async function retrieveIcon(exe: string) {
-  const icon = await app.getFileIcon(exe);
+  const icon = await app.getFileIcon(exe, { size: 'large' });
   return icon.toDataURL();
 }
 
