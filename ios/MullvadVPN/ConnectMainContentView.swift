@@ -29,8 +29,8 @@ class ConnectMainContentView: UIView {
     }()
 
     let secureLabel = makeBoldTextLabel(ofSize: 20)
-    let countryLabel = makeBoldTextLabel(ofSize: 34)
     let cityLabel = makeBoldTextLabel(ofSize: 34)
+    let countryLabel = makeBoldTextLabel(ofSize: 34)
 
     lazy var connectionPanel: ConnectionPanelView = {
         let view = ConnectionPanelView()
@@ -105,15 +105,10 @@ class ConnectMainContentView: UIView {
         mapView.frame = self.bounds
         addSubview(mapView)
         addSubview(containerView)
-//        addSubview(notificationBannerContainer)
 
-        [secureLabel, countryLabel, cityLabel, connectionPanel, buttonsStackView].forEach { containerView.addSubview($0) }
+        [secureLabel, cityLabel, countryLabel, connectionPanel, buttonsStackView].forEach { containerView.addSubview($0) }
 
         NSLayoutConstraint.activate([
-//            notificationBannerContainer.topAnchor.constraint(equalTo: topAnchor),
-//            notificationBannerContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
-//            notificationBannerContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
-
             containerView.topAnchor.constraint(equalTo: layoutMarginsGuide.topAnchor),
             containerView.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
             containerView.bottomAnchor.constraint(equalTo: layoutMarginsGuide.bottomAnchor),
@@ -122,15 +117,15 @@ class ConnectMainContentView: UIView {
             secureLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             secureLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
 
-            countryLabel.topAnchor.constraint(equalTo: secureLabel.bottomAnchor, constant: 8),
-            countryLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            countryLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-
-            cityLabel.topAnchor.constraint(equalTo: countryLabel.bottomAnchor, constant: 8),
+            cityLabel.topAnchor.constraint(equalTo: secureLabel.bottomAnchor, constant: 8),
             cityLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             cityLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
 
-            connectionPanel.topAnchor.constraint(equalTo: cityLabel.bottomAnchor, constant: 8),
+            countryLabel.topAnchor.constraint(equalTo: cityLabel.bottomAnchor, constant: 8),
+            countryLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            countryLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+
+            connectionPanel.topAnchor.constraint(equalTo: countryLabel.bottomAnchor, constant: 8),
             connectionPanel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             connectionPanel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
 

@@ -107,21 +107,6 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
         Account.shared.addObserver(self)
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-
-        toggleBannerForever(show: true)
-//        self.notificationBannerController.toggleBanner(show: true, animated: false)
-    }
-
-    func toggleBannerForever(show: Bool) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(3)) {
-            self.notificationBannerController.toggleBanner(show: show, animated: true) { _ in
-                self.toggleBannerForever(show: !show)
-            }
-        }
-    }
-
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
 
@@ -220,8 +205,8 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
             mainContentView.connectionPanel.collapseButton.setTitle(connectionInfo.hostname, for: .normal)
 
         case .connecting, .disconnected, .disconnecting:
-            mainContentView.cityLabel.attributedText = attributedStringForLocation(string: " ")
             mainContentView.countryLabel.attributedText = attributedStringForLocation(string: " ")
+            mainContentView.cityLabel.attributedText = attributedStringForLocation(string: " ")
             mainContentView.connectionPanel.dataSource = nil
             mainContentView.connectionPanel.isHidden = true
         }

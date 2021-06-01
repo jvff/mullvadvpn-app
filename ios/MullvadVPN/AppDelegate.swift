@@ -156,9 +156,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             fatalError()
         }
 
-        if let accountExpiry = Account.shared.expiry {
-            notificationManager.addAccountExpiryNotification(accountExpiry: accountExpiry)
-        }
+        notificationManager.processNotifications()
 
         startPaymentQueueHandling()
     }
@@ -719,7 +717,7 @@ extension AppDelegate: UISplitViewControllerDelegate {
 extension AppDelegate: UNUserNotificationCenterDelegate {
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        if response.notification.request.identifier == NotificationRequestIdentifier.accountExpiry,
+        if response.notification.request.identifier == kAccountExpiryNotificationIdentifier,
            response.actionIdentifier == UNNotificationDefaultActionIdentifier {
             rootContainer?.showSettings(navigateTo: .account, animated: true)
         }

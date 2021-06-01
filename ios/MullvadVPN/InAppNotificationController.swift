@@ -59,15 +59,13 @@ class InAppNotificationController {
         if animated {
             let timing = UISpringTimingParameters(dampingRatio: 0.7, initialVelocity: CGVector(dx: 0, dy: 1))
             let animator = UIViewPropertyAnimator(duration: 0.8, timingParameters: timing)
-
+            animator.isInterruptible = false
             animator.addAnimations {
                 self.containerView.layoutIfNeeded()
             }
-            animator.isInterruptible = false
             animator.addCompletion { _ in
                 finish()
             }
-
             animator.startAnimation()
         } else {
             containerView.layoutIfNeeded()
