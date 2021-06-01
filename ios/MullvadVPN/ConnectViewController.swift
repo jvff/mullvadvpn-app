@@ -35,6 +35,11 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
         return view
     }()
 
+
+    private lazy var notificationBannerController = {
+        return InAppNotificationController(containerView: self.mainContentView)
+    }()
+
     private let logger = Logger(label: "ConnectViewController")
 
     private var lastLocation: CLLocationCoordinate2D?
@@ -85,6 +90,13 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
 
         mainContentView.selectLocationButton.addTarget(self, action: #selector(handleSelectLocation(_:)), for: .touchUpInside)
 
+        notificationBannerController.setNotification(
+            InAppNotification(
+                style: .warning,
+                title: "UPDATE AVAILABLE",
+                body: "Install the latest app version to stay up to date.")
+        )
+
         TunnelManager.shared.addObserver(self)
         self.tunnelState = TunnelManager.shared.tunnelState
 
@@ -93,6 +105,21 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
         updateLocation(animated: false)
 
         Account.shared.addObserver(self)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        toggleBannerForever(show: true)
+//        self.notificationBannerController.toggleBanner(show: true, animated: false)
+    }
+
+    func toggleBannerForever(show: Bool) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(3)) {
+            self.notificationBannerController.toggleBanner(show: show, animated: true) { _ in
+                self.toggleBannerForever(show: !show)
+            }
+        }
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {

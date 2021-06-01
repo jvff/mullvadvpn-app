@@ -8,7 +8,7 @@
 
 import UIKit
 
-@IBDesignable class RelayStatusIndicatorView: UIControl {
+class RelayStatusIndicatorView: UIControl {
 
     private let circleLayer: CALayer = {
         let layer = CALayer()

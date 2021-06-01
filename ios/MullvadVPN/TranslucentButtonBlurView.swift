@@ -10,7 +10,23 @@ import UIKit
 
 private let kButtonCornerRadius = CGFloat(4)
 
-@IBDesignable class TranslucentButtonBlurView: UIVisualEffectView {
+class TranslucentButtonBlurView: UIVisualEffectView {
+
+    init(button: AppButton, effect: UIVisualEffect?) {
+        super.init(effect: effect)
+        
+        contentView.addSubview(button)
+
+        button.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            button.topAnchor.constraint(equalTo: contentView.topAnchor),
+            button.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            button.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            button.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+        ])
+
+    }
 
     override init(effect: UIVisualEffect?) {
         super.init(effect: effect)

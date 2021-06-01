@@ -104,11 +104,16 @@ class ConnectMainContentView: UIView {
     private func addSubviews() {
         mapView.frame = self.bounds
         addSubview(mapView)
-
         addSubview(containerView)
+//        addSubview(notificationBannerContainer)
+
         [secureLabel, countryLabel, cityLabel, connectionPanel, buttonsStackView].forEach { containerView.addSubview($0) }
 
         NSLayoutConstraint.activate([
+//            notificationBannerContainer.topAnchor.constraint(equalTo: topAnchor),
+//            notificationBannerContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
+//            notificationBannerContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
+
             containerView.topAnchor.constraint(equalTo: layoutMarginsGuide.topAnchor),
             containerView.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
             containerView.bottomAnchor.constraint(equalTo: layoutMarginsGuide.bottomAnchor),

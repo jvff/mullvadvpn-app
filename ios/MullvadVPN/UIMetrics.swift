@@ -15,6 +15,9 @@ extension UIMetrics {
     /// Common layout margins for content presentation
     static var contentLayoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
 
+    /// Layout margins for in-app banner notification presentation
+    static var inAppBannerNotificationLayoutMargins = UIEdgeInsets(top: 16, left: 24, bottom: 16, right: 24)
+
     /// Maximum width of the split view content container on iPad
     static var maximumSplitViewContentContainerWidth: CGFloat = 810 * 0.7
 

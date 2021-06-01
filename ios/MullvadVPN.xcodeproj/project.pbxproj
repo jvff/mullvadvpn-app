@@ -130,6 +130,8 @@
 		587AD7C723421D8600E93A53 /* TunnelSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587AD7C523421D7000E93A53 /* TunnelSettings.swift */; };
 		587AD7CA2342283900E93A53 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587AD7C92342283900E93A53 /* Account.swift */; };
 		587B7536266528A200DEF7E9 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587B7535266528A200DEF7E9 /* NotificationManager.swift */; };
+		587B753B2666467500DEF7E9 /* InAppNotificationBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587B753A2666467500DEF7E9 /* InAppNotificationBannerView.swift */; };
+		587B753D2666468F00DEF7E9 /* InAppNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587B753C2666468F00DEF7E9 /* InAppNotificationController.swift */; };
 		587B7545266922BF00DEF7E9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 587B7543266922BF00DEF7E9 /* Localizable.strings */; };
 		587CBFE322807F530028DED3 /* UIColor+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587CBFE222807F530028DED3 /* UIColor+Helpers.swift */; };
 		588534BF246193D90018B744 /* AutomaticKeyRotationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588534BD246193C00018B744 /* AutomaticKeyRotationManager.swift */; };
@@ -361,6 +363,8 @@
 		587AD7C523421D7000E93A53 /* TunnelSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TunnelSettings.swift; sourceTree = "<group>"; };
 		587AD7C92342283900E93A53 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		587B7535266528A200DEF7E9 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		587B753A2666467500DEF7E9 /* InAppNotificationBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppNotificationBannerView.swift; sourceTree = "<group>"; };
+		587B753C2666468F00DEF7E9 /* InAppNotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppNotificationController.swift; sourceTree = "<group>"; };
 		587B7544266922BF00DEF7E9 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		587CBFE222807F530028DED3 /* UIColor+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIColor+Helpers.swift"; sourceTree = "<group>"; };
 		588534BD246193C00018B744 /* AutomaticKeyRotationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomaticKeyRotationManager.swift; sourceTree = "<group>"; };
@@ -698,6 +702,8 @@
 				58B8743122B25A7600015324 /* WireguardAssociatedAddresses.swift */,
 				5877152F23981F7B001F8237 /* WireguardKeysViewController.swift */,
 				58B9814D24FEA70D00C0D59E /* WireguardKeysViewController.xib */,
+				587B753A2666467500DEF7E9 /* InAppNotificationBannerView.swift */,
+				587B753C2666468F00DEF7E9 /* InAppNotificationController.swift */,
 			);
 			path = MullvadVPN;
 			sourceTree = "<group>";
@@ -1016,6 +1022,7 @@
 				5857F24724C882D700CF6F47 /* SelectLocationNavigationController.swift in Sources */,
 				580EE21224B322FC00F9D8A1 /* ResultOperation.swift in Sources */,
 				58BA693123EADA6A009DC256 /* SimulatorTunnelProvider.swift in Sources */,
+				587B753B2666467500DEF7E9 /* InAppNotificationBannerView.swift in Sources */,
 				58B993B12608A34500BA7811 /* LoginContentView.swift in Sources */,
 				58E6771F24ADFE7800AA26E7 /* SettingsNavigationController.swift in Sources */,
 				58A1AA8C23F5584C009F7EA6 /* ConnectionPanelView.swift in Sources */,
@@ -1132,6 +1139,7 @@
 				58FAEDFF24533A7000CB0F5B /* KeychainReturn.swift in Sources */,
 				58ACF64B26553C3F00ACE4B7 /* SettingsSwitchCell.swift in Sources */,
 				580EE20C24B3225F00F9D8A1 /* DelayOperation.swift in Sources */,
+				587B753D2666468F00DEF7E9 /* InAppNotificationController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
