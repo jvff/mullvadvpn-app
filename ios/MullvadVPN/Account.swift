@@ -198,6 +198,9 @@ class Account {
         let operation = AsyncBlockOperation { (finish) in
             DispatchQueue.main.async {
                 self.removeFromPreferences()
+                self.observerList.forEach { (observer) in
+                    observer.accountDidLogout(self)
+                }
                 finish()
             }
         }
