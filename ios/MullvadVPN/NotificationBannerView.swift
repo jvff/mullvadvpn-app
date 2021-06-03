@@ -1,5 +1,5 @@
 //
-//  InAppNotificationBannerView.swift
+//  NotificationBannerView.swift
 //  MullvadVPN
 //
 //  Created by pronebird on 01/06/2021.
@@ -23,7 +23,7 @@ enum InAppNotificationStyle {
     }
 }
 
-class InAppNotificationBannerView: UIView {
+class NotificationBannerView: UIView {
 
     private static let indicatorViewSize = CGSize(width: 12, height: 12)
 
@@ -58,7 +58,7 @@ class InAppNotificationBannerView: UIView {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .dangerColor
-        view.layer.cornerRadius = InAppNotificationBannerView.indicatorViewSize.width * 0.5
+        view.layer.cornerRadius = NotificationBannerView.indicatorViewSize.width * 0.5
         if #available(iOS 13.0, *) {
             view.layer.cornerCurve = .circular
         }
@@ -69,7 +69,6 @@ class InAppNotificationBannerView: UIView {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.layoutMargins = UIMetrics.inAppBannerNotificationLayoutMargins
-        view.preservesSuperviewLayoutMargins = true
         return view
     }()
 

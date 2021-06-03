@@ -13,43 +13,114 @@ import UIKit
 
 let kAccountExpiryNotificationIdentifier = "net.mullvad.MullvadVPN.AccountExpiryNotification"
 
-class NotificationManager: AccountObserver {
+protocol NotificationManagerDelegate: AnyObject {
+    func notificationManagerDidUpdateInAppNotifications(_ manager: NotificationManager, notifications: [InAppNotificationDescriptor])
+}
+
+protocol NotificationProviderDelegate: AnyObject {
+    func notificationProviderDidInvalidate(_ notificationProvider: NotificationProvider)
+}
+
+class NotificationProvider {
+    fileprivate weak var delegate: NotificationProviderDelegate?
+
+    var identifier: String {
+        return "default"
+    }
+
+    func invalidate() {
+        delegate?.notificationProviderDidInvalidate(self)
+    }
+}
+
+protocol SystemNotificationProvider {
+    /// Unique request identifier
+    var identifier: String { get }
+
+    /// Trigger if available, otherwise `nil`
+    var trigger: UNNotificationTrigger? { get }
+
+    /// Notification request if available, otherwise `nil`
+    var notificationRequest: UNNotificationRequest? { get }
+
+    /// Whether any pending requests should be removed
+    var shouldRemovePendingRequests: Bool { get }
+
+    /// Whether any delivered requests should be removed
+    var shouldRemoveDeliveredRequests: Bool { get }
+}
+
+protocol InAppNotificationProvider: NotificationProvider {
+    /// Unique request identifier
+    var identifier: String { get }
+
+    /// In-app notification descriptor
+    var notificationDescriptor: InAppNotificationDescriptor? { get }
+}
+
+class NotificationManager: NotificationProviderDelegate {
 
     private lazy var logger = Logger(label: "NotificationManager")
 
-    init() {
-        Account.shared.addObserver(self)
+    var notificationProviders: [NotificationProvider] = [] {
+        didSet {
+            for notificationProvider in notificationProviders {
+                notificationProvider.delegate = self
+            }
+        }
     }
 
-    func processNotifications() {
+    var inAppNotificationDescriptors: [InAppNotificationDescriptor] = []
 
-    }
+    weak var delegate: NotificationManagerDelegate?
 
-    private func addAccountExpiryNotification(accountExpiry: Date) {
-        requestNotificationPermissions { (granted) in
-            guard let triggerDate = self.triggerDateForAccountExpiryNotification(accountExpiry: accountExpiry), granted else {
-                return
+    func updateNotifications() {
+        var newSystemNotificationRequests = [UNNotificationRequest]()
+        var newInAppNotificationDescriptors = [InAppNotificationDescriptor]()
+        var pendingRequestIdentifiersToRemove = [String]()
+        var deliveredRequestIdentifiersToRemove = [String]()
+
+        for notificationProvider in notificationProviders {
+            if let notificationProvider = notificationProvider as? SystemNotificationProvider {
+                if notificationProvider.shouldRemovePendingRequests {
+                    pendingRequestIdentifiersToRemove.append(notificationProvider.identifier)
+                }
+
+                if notificationProvider.shouldRemoveDeliveredRequests {
+                    deliveredRequestIdentifiersToRemove.append(notificationProvider.identifier)
+                }
+
+                if let request = notificationProvider.notificationRequest {
+                    newSystemNotificationRequests.append(request)
+                }
             }
 
-            UNUserNotificationCenter.current().getPendingNotificationRequests { (pendingRequests) in
-                let hasPendingAccountExpiryNotification = pendingRequests.contains(where: { (pendingRequest) in
-                    let calendarTrigger = pendingRequest.trigger as? UNCalendarNotificationTrigger
+            if let notificationProvider = notificationProvider as? InAppNotificationProvider {
+                if let descriptor = notificationProvider.notificationDescriptor {
+                    newInAppNotificationDescriptors.append(descriptor)
+                }
+            }
+        }
 
-                    return pendingRequest.identifier == kAccountExpiryNotificationIdentifier &&
-                        calendarTrigger?.nextTriggerDate() == triggerDate
-                })
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: pendingRequestIdentifiersToRemove)
+        notificationCenter.removeDeliveredNotifications(withIdentifiers: deliveredRequestIdentifiersToRemove)
 
-                guard !hasPendingAccountExpiryNotification else { return }
+        requestNotificationPermissions { (granted) in
+            guard granted else { return }
 
-                let request = self.makeAccountExpiryNotificationRequest(triggerDate: triggerDate)
-
-                UNUserNotificationCenter.current().add(request) { (error) in
+            for newRequest in newSystemNotificationRequests {
+                notificationCenter.add(newRequest) { (error) in
                     if let error = error {
-                        self.logger.error("Failed to add account expiry notification request: \(error.localizedDescription)")
+                        self.logger.error("Failed to add notification request with identifier \(newRequest.identifier). Error: \(error.localizedDescription)")
                     }
                 }
             }
         }
+
+        inAppNotificationDescriptors = newInAppNotificationDescriptors
+
+        delegate?.notificationManagerDidUpdateInAppNotifications(self, notifications: newInAppNotificationDescriptors)
     }
 
     private func requestNotificationPermissions(completion: @escaping (Bool) -> Void) {
@@ -77,45 +148,55 @@ class NotificationManager: AccountObserver {
         }
     }
 
-    private func triggerDateForAccountExpiryNotification(accountExpiry: Date) -> Date? {
-        // Subtract 3 days from expiry date
-        guard let triggerDate = Calendar.current.date(byAdding: .day, value: -3, to: accountExpiry) else { return nil }
+    func notificationProviderDidInvalidate(_ notificationProvider: NotificationProvider) {
+        let notificationCenter = UNUserNotificationCenter.current()
 
-        // Do not produce notification if less than 3 days left till expiry
-        guard triggerDate > Date() else { return nil }
+        // Invalidate system notification
+        if let notificationProvider = notificationProvider as? SystemNotificationProvider {
+            if notificationProvider.shouldRemovePendingRequests {
+                notificationCenter.removePendingNotificationRequests(withIdentifiers: [notificationProvider.identifier])
+            }
 
-        // Set time to 9am
-        return Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: triggerDate)
-    }
+            if notificationProvider.shouldRemoveDeliveredRequests {
+                notificationCenter.removeDeliveredNotifications(withIdentifiers: [notificationProvider.identifier])
+            }
 
-    private func makeAccountExpiryNotificationRequest(triggerDate: Date) -> UNNotificationRequest {
-        let content = UNMutableNotificationContent()
-        content.body = NSString.localizedUserNotificationString(forKey: "AccountExpiryNotificationBody", arguments: nil)
-        content.sound = UNNotificationSound.default
+            if let request = notificationProvider.notificationRequest {
+                requestNotificationPermissions { (granted) in
+                    guard granted else { return }
 
-        let dateComponents = Calendar.current.dateComponents([.second, .minute, .hour, .day, .month, .year], from: triggerDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+                    notificationCenter.add(request) { (error) in
+                        if let error = error {
+                            self.logger.error("Failed to add notification request with identifier \(request.identifier). Error: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            }
+        }
 
-        return UNNotificationRequest(
-            identifier: kAccountExpiryNotificationIdentifier,
-            content: content,
-            trigger: trigger
-        )
-    }
+        // Invalidate in-app notification
+        if let notificationProvider = notificationProvider as? InAppNotificationProvider {
+            var newNotificationDescriptors = inAppNotificationDescriptors
 
-    // MARK: - AccountObserver
+            if let replaceNotificationDescriptor = notificationProvider.notificationDescriptor {
+                newNotificationDescriptors = notificationProviders.compactMap { (notificationProvider) -> InAppNotificationDescriptor? in
+                    if replaceNotificationDescriptor.identifier == notificationProvider.identifier {
+                        return replaceNotificationDescriptor
+                    } else {
+                        return inAppNotificationDescriptors.first { (descriptor) in
+                            return descriptor.identifier == notificationProvider.identifier
+                        }
+                    }
+                }
+            } else {
+                newNotificationDescriptors.removeAll { (descriptor) in
+                    return descriptor.identifier == notificationProvider.identifier
+                }
+            }
 
-    func account(_ account: Account, didUpdateExpiry expiry: Date) {
-        addAccountExpiryNotification(accountExpiry: expiry)
-    }
+            inAppNotificationDescriptors = newNotificationDescriptors
 
-    func account(_ account: Account, didLoginWithToken token: String, expiry: Date) {
-        addAccountExpiryNotification(accountExpiry: expiry)
-    }
-
-    func accountDidLogout(_ account: Account) {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: [kAccountExpiryNotificationIdentifier]
-        )
+            delegate?.notificationManagerDidUpdateInAppNotifications(self, notifications: inAppNotificationDescriptors)
+        }
     }
 }

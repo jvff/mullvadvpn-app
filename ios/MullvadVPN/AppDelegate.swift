@@ -41,6 +41,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     private var relayConstraints: RelayConstraints?
     private let alertPresenter = AlertPresenter()
+
     private let notificationManager = NotificationManager()
 
     // MARK: - Application lifecycle
@@ -156,7 +157,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             fatalError()
         }
 
-        notificationManager.processNotifications()
+        notificationManager.delegate = connectController?.notificationController
+        notificationManager.notificationProviders = [
+            AccountExpiryNotificationProvider()
+        ]
+        notificationManager.updateNotifications()
 
         startPaymentQueueHandling()
     }

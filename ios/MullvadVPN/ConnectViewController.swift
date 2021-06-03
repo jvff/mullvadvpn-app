@@ -25,19 +25,16 @@ protocol ConnectViewControllerDelegate: AnyObject {
     func connectViewControllerShouldReconnectTunnel(_ controller: ConnectViewController)
 }
 
-class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainment, TunnelObserver, AccountObserver
-{
+class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainment, TunnelObserver, AccountObserver {
+
     weak var delegate: ConnectViewControllerDelegate?
+
+    let notificationController = NotificationController()
 
     private let mainContentView: ConnectMainContentView = {
         let view = ConnectMainContentView(frame: UIScreen.main.bounds)
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
-    }()
-
-
-    private lazy var notificationBannerController = {
-        return InAppNotificationController(containerView: self.mainContentView)
     }()
 
     private let logger = Logger(label: "ConnectViewController")
@@ -90,19 +87,13 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
 
         mainContentView.selectLocationButton.addTarget(self, action: #selector(handleSelectLocation(_:)), for: .touchUpInside)
 
-        notificationBannerController.setNotification(
-            InAppNotification(
-                style: .warning,
-                title: "UPDATE AVAILABLE",
-                body: "Install the latest app version to stay up to date.")
-        )
-
         TunnelManager.shared.addObserver(self)
         self.tunnelState = TunnelManager.shared.tunnelState
 
         addSubviews()
         setupMapView()
         updateLocation(animated: false)
+        addNotificationController()
 
         Account.shared.addObserver(self)
     }
@@ -278,6 +269,22 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
         case .connecting:
             break
         }
+    }
+
+    private func addNotificationController() {
+        let notificationView = notificationController.view!
+        notificationView.translatesAutoresizingMaskIntoConstraints = false
+
+        addChild(notificationController)
+        view.addSubview(notificationView)
+        notificationController.didMove(toParent: self)
+
+        NSLayoutConstraint.activate([
+            notificationView.topAnchor.constraint(equalTo: view.topAnchor),
+            notificationView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            notificationView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            notificationView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
     }
 
     // MARK: - Actions
