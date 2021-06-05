@@ -133,6 +133,7 @@ class AccountCache(private val endpoint: ServiceEndpoint) {
                     }
 
                     do {
+                        android.util.Log.d("mullvad", "Fetching account data")
                         val result = daemon.await().getAccountData(account)
 
                         if (result is GetAccountDataResult.Ok) {
